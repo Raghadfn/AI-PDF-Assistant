@@ -30,7 +30,11 @@ def process_pdf(pdf_path):
     # embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
     embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
 
-    vector_db = Chroma.from_documents(chunks, embeddings)
+    vector_db = Chroma.from_documents(
+        documents=chunks, 
+        embedding=embeddings,
+        collection_name="my_pdf_collection",
+    )
     
     return vector_db
 
@@ -63,3 +67,4 @@ def ask_question(vector_db, query):
     response = llm.invoke(prompt)
 
     return response.content
+
