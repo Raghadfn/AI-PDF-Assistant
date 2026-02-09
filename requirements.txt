@@ -1,7 +1,8 @@
-langchain
-langchain-openai
 streamlit
-pypdf
+langchain
+langchain-groq
+langchain-huggingface
+pdfplumber
 chromadb
 python-dotenv
-tiktoken
+sentence-transformers
