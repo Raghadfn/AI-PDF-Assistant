@@ -27,7 +27,9 @@ def process_pdf(pdf_path):
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
     chunks = text_splitter.split_documents(docs)
     
+    # embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
     embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+
     vector_db = Chroma.from_documents(chunks, embeddings)
     
     return vector_db
@@ -59,4 +61,5 @@ def ask_question(vector_db, query):
     """
     
     response = llm.invoke(prompt)
+
     return response.content
