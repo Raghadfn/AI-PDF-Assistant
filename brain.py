@@ -5,14 +5,13 @@ from langchain_groq import ChatGroq
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Chroma
-from langchain_core.documents import Document # هذا السطر مهم جداً
-
+from langchain_core.documents import Document
 
 # تحميل الإعدادات
 load_dotenv()
 
 def process_pdf(pdf_path):
-    # استخدام pdfplumber لقراءة النصوص العربية بدقة أعلى
+    # 1. استخراج النص
     text = ""
     with pdfplumber.open(pdf_path) as pdf:
         for page in pdf.pages:
@@ -20,44 +19,48 @@ def process_pdf(pdf_path):
             if content:
                 text += content + "\n"
     
-    # تحويل النص المستخرج إلى تنسيق يفهمه LangChain
     docs = [Document(page_content=text)]
     
-    # تقسيم النص
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
+    # 2. تقسيم النص
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=600, chunk_overlap=100)
     chunks = text_splitter.split_documents(docs)
     
-    # embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
     embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
 
+    # --- الحل الجذري هنا ---
+    # نستخدم معرفاً فريداً لكل عملية معالجة لضمان عدم تداخل البيانات
+    import uuid
+    unique_collection_name = f"pdf_coll_{uuid.uuid4().hex[:8]}"
+
+    # إنشاء قاعدة البيانات مع التأكد من أنها كائن جديد تماماً
     vector_db = Chroma.from_documents(
         documents=chunks, 
         embedding=embeddings,
-        collection_name="my_pdf_collection",
+        collection_name=unique_collection_name,
+        # إضافة persist_directory اختياري، ولكن تركه فارغاً مع اسم فريد يضمن الحذف عند إغلاق الجلسة
     )
     
     return vector_db
 
 def ask_question(vector_db, query):
-    # استخدام الموديل الأحدث والأكثر استقراراً
     llm = ChatGroq(
         groq_api_key=os.getenv("GROQ_API_KEY"),
-        model_name="llama-3.1-8b-instant", # استخدم هذا الموديل لأنه أسرع وأقل هلوسة
+        model_name="llama-3.1-8b-instant",
         temperature=0
     )
     
-    docs = vector_db.similarity_search(query)
-    context = "\n".join([doc.page_content for doc in docs])
+    # تحسين البحث: جلب أفضل 4 قطع نصية متعلقة بالسؤال
+    docs = vector_db.similarity_search(query, k=4)
+    context = "\n\n---\n\n".join([doc.page_content for doc in docs])
     
     prompt = f"""
-    أنت مساعد ذكي متخصص في تحليل النصوص. أجب على السؤال بناءً على النص المرفق فقط.
+    أنت مساعد ذكي متخصص في تحليل النصوص. أجب على السؤال بناءً على النص في الملف المرفق فقط.
     
-    تعليمات هامة:
-    1. صغ الإجابة بأسلوبك الخاص وبطريقة شرح واضحة و كلمات مفهومه.
-    2. لا تكتفِ بنسخ الروابط الإلكترونية أو حقوق النشر إلا إذا سُئلت عنها.
-    3. إذا لم تجد الإجابة في النص، قل "عذراً، هذه المعلومة غير متوفرة".
+    التعليمات:
+    1. صغ الإجابة بأسلوبك الخاص وبطريقة شرح واضحة.
+    2. إذا لم تجد الإجابة في النص، قل "عذراً، هذه المعلومة غير متوفرة في الملف المرفوع حالياً".
     
-    النص المستخرج من الملف:
+    النص المرفق:
     {context}
     
     السؤال:
@@ -65,6 +68,4 @@ def ask_question(vector_db, query):
     """
     
     response = llm.invoke(prompt)
-
     return response.content
-
