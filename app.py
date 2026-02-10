@@ -77,3 +77,4 @@ else:
     if "current_hash" in st.session_state:
         st.session_state.clear()
     st.info("👆 يرجى رفع ملف PDF للبدء.")
+
